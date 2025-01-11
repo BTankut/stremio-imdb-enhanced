@@ -94,50 +94,54 @@ async function fetchMovieMetadata(imdbId) {
     }
 }
 
-// Katalog handler'ı
+// Catalog handler
 builder.defineCatalogHandler(async ({ type, id, extra }) => {
-    console.log(`Katalog isteği alındı: type=${type}, id=${id}, extra=`, extra);
+    console.log('Catalog handler called with:', { type, id, extra });
     
     try {
-        let searchQuery = '';
-        
-        // API key kontrolü
         if (!OMDB_API_KEY) {
             throw new Error('API key bulunamadı!');
         }
-        
-        // Basit bir arama yapalım önce
-        const url = `https://www.omdbapi.com/?s=Batman&type=${type}&apikey=${OMDB_API_KEY}`;
-        console.log('Calling URL:', url.replace(OMDB_API_KEY, 'HIDDEN_KEY')); // API key'i gizle
-        
-        const response = await fetch(url);
-        const data = await response.json();
-        console.log('API Response Status:', response.status);
-        console.log('API Response Headers:', Object.fromEntries(response.headers));
-        console.log('API Response Body:', JSON.stringify(data, null, 2));
 
-        if (data.Response === 'True' && Array.isArray(data.Search)) {
-            const metas = await Promise.all(
-                data.Search.map(async (item) => {
-                    return {
-                        id: item.imdbID,
-                        type: type,
-                        name: item.Title,
-                        poster: item.Poster,
-                        background: item.Poster,
-                        releaseInfo: item.Year
-                    };
-                })
-            );
-            console.log('Returning metas:', metas);
-            return { metas };
+        // İlk sayfa için varsayılan değerler
+        const page = extra.skip ? Math.floor(extra.skip / 10) + 1 : 1;
+        const searchQuery = extra.search || 'Batman'; // Varsayılan olarak Batman
+
+        // OMDb API'ye istek at
+        const url = `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(searchQuery)}&type=${type === 'series' ? 'series' : 'movie'}&page=${page}`;
+        console.log('Calling OMDb API:', url.replace(OMDB_API_KEY, 'HIDDEN_KEY'));
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        console.error('Catalog error:', data.Error);
-        return { metas: [] };
+        const data = await response.json();
+        console.log('OMDb API Response:', JSON.stringify(data, null, 2));
+
+        if (data.Response === 'False') {
+            console.error('OMDb API Error:', data.Error);
+            return { metas: [] };
+        }
+
+        if (!Array.isArray(data.Search)) {
+            console.error('Unexpected API response format:', data);
+            return { metas: [] };
+        }
+
+        // Sonuçları Stremio formatına dönüştür
+        const metas = data.Search.map(item => ({
+            id: item.imdbID,
+            type: type,
+            name: item.Title,
+            poster: item.Poster,
+            year: parseInt(item.Year)
+        }));
+
+        return { metas };
     } catch (error) {
-        console.error(`Katalog alınırken hata: ${error.message}`);
-        return { metas: [] };
+        console.error('Catalog handler error:', error);
+        throw error;
     }
 });
 
