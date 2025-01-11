@@ -18,7 +18,7 @@ if (!OMDB_API_KEY) {
 // Manifest tanımlaması
 const manifest = {
     id: 'org.stremio.imdbenhanced',
-    version: '1.2.1',
+    version: '1.2.2',
     name: 'IMDb Enhanced for Android TV',
     description: 'Android TV için geliştirilmiş IMDb kataloğu entegrasyonu',
     types: ['movie', 'series'],
@@ -60,12 +60,20 @@ const manifest = {
     idPrefixes: ['tt'],
     behaviorHints: {
         adult: false,
-        configurable: true,
-        configurationRequired: false
+        configurable: true
     }
 };
 
 const builder = new addonBuilder(manifest);
+
+// Favicon isteklerini handle et
+builder.defineRequestHandler((args) => {
+    if (args.path === '/favicon.ico' || args.path === '/favicon.png') {
+        console.log(`Favicon isteği alındı: ${args.path}`);
+        return Promise.resolve({ type: 'image/x-icon', content: Buffer.from('') });
+    }
+    return null;
+});
 
 // Film metadatası için yardımcı fonksiyon
 async function fetchMovieMetadata(imdbId) {
