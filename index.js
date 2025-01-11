@@ -18,7 +18,7 @@ if (!OMDB_API_KEY) {
 // Manifest tanımlaması
 const manifest = {
     id: 'org.stremio.imdbenhanced',
-    version: '1.1.3',
+    version: '1.1.4',
     name: 'IMDb Enhanced for Android TV',
     description: 'Android TV için geliştirilmiş IMDb kataloğu entegrasyonu',
     types: ['movie', 'series'],
@@ -178,8 +178,18 @@ builder.defineMetaHandler(async ({ type, id }) => {
     }
 });
 
-// Stream handler (gerekli ama kullanılmıyor)
-builder.defineStreamHandler(() => ({ streams: [] }));
+// Stream handler
+builder.defineStreamHandler(async ({ type, id }) => {
+    console.log('Stream handler called with:', { type, id });
+    
+    try {
+        // Şimdilik boş stream listesi döndür
+        return { streams: [] };
+    } catch (error) {
+        console.error('Stream handler error:', error);
+        throw error;
+    }
+});
 
 // Sunucuyu başlat
 const port = process.env.PORT || 7001;
