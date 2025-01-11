@@ -18,7 +18,7 @@ if (!OMDB_API_KEY) {
 // Manifest tanımlaması
 const manifest = {
     id: 'org.stremio.imdbenhanced',
-    version: '1.1.4',
+    version: '1.2.0',
     name: 'IMDb Enhanced for Android TV',
     description: 'Android TV için geliştirilmiş IMDb kataloğu entegrasyonu',
     types: ['movie', 'series'],
@@ -30,11 +30,11 @@ const manifest = {
             extra: [
                 {
                     name: 'genre',
-                    isRequired: false,
-                    options: ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror', 'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western']
+                    options: ['Top250', 'MostPopular', 'InTheaters', 'ComingSoon'],
+                    isRequired: false
                 },
                 {
-                    name: 'skip',
+                    name: 'search',
                     isRequired: false
                 }
             ]
@@ -42,15 +42,15 @@ const manifest = {
         {
             type: 'series',
             id: 'imdb-series',
-            name: 'IMDb TV Shows',
+            name: 'IMDb TV Series',
             extra: [
                 {
                     name: 'genre',
-                    isRequired: false,
-                    options: ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'History', 'Horror', 'Music', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western']
+                    options: ['Top250', 'MostPopular', 'OnTV', 'ComingSoon'],
+                    isRequired: false
                 },
                 {
-                    name: 'skip',
+                    name: 'search',
                     isRequired: false
                 }
             ]
@@ -103,9 +103,34 @@ builder.defineCatalogHandler(async ({ type, id, extra }) => {
             throw new Error('API key bulunamadı!');
         }
 
-        // İlk sayfa için varsayılan değerler
         const page = extra.skip ? Math.floor(extra.skip / 10) + 1 : 1;
-        const searchQuery = extra.search || 'Batman'; // Varsayılan olarak Batman
+        let searchQuery = '';
+
+        if (extra.search) {
+            // Arama sorgusu varsa direkt olarak onu kullan
+            searchQuery = extra.search;
+        } else if (extra.genre) {
+            // IMDb listesi seçilmişse ona göre arama yap
+            switch (extra.genre) {
+                case 'Top250':
+                    searchQuery = 'Shawshank'; // Örnek olarak Top 250'den bir film
+                    break;
+                case 'MostPopular':
+                    searchQuery = 'Inception'; // Örnek olarak popüler bir film
+                    break;
+                case 'InTheaters':
+                    searchQuery = 'Oppenheimer'; // Örnek olarak vizyondaki bir film
+                    break;
+                case 'ComingSoon':
+                    searchQuery = 'Dune'; // Örnek olarak yakında gelecek bir film
+                    break;
+                default:
+                    searchQuery = 'Godfather'; // Varsayılan arama
+            }
+        } else {
+            // Hiçbir filtre seçilmemişse varsayılan olarak popüler filmleri göster
+            searchQuery = 'Inception';
+        }
 
         // OMDb API'ye istek at
         const url = `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(searchQuery)}&type=${type === 'series' ? 'series' : 'movie'}&page=${page}`;

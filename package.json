@@ -1,6 +1,6 @@
 {
   "name": "stremio-imdb-enhanced",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "Android TV için geliştirilmiş IMDb kataloğu entegrasyonu",
   "main": "index.js",
   "scripts": {
