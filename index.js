@@ -7,12 +7,13 @@ const cache = new NodeCache({ stdTTL: 3600 }); // 1 saat cache süresi
 
 // OMDb API anahtarı
 const OMDB_API_KEY = process.env.OMDB_API_KEY;
+console.log('Environment variables:', process.env);
 console.log('API Key:', OMDB_API_KEY); // API key'i kontrol et
 
 // Manifest tanımlaması
 const manifest = {
     id: 'org.stremio.imdbenhanced',
-    version: '1.1.1',
+    version: '1.1.2',
     name: 'IMDb Enhanced for Android TV',
     description: 'Android TV için geliştirilmiş IMDb kataloğu entegrasyonu',
     types: ['movie', 'series'],
@@ -97,11 +98,11 @@ builder.defineCatalogHandler(async ({ type, id, extra }) => {
         
         // Basit bir arama yapalım önce
         const url = `https://www.omdbapi.com/?s=Batman&type=${type}&apikey=${OMDB_API_KEY}`;
-        console.log('Fetching catalog URL:', url);
+        console.log('Full URL being called:', url);
         
         const response = await fetch(url);
         const data = await response.json();
-        console.log('Catalog response:', data);
+        console.log('Raw API Response:', JSON.stringify(data));
 
         if (data.Response === 'True' && Array.isArray(data.Search)) {
             const metas = await Promise.all(
