@@ -14,17 +14,37 @@ const manifest = {
     version: '1.0.0',
     name: 'IMDb Enhanced for Android TV',
     description: 'Android TV için geliştirilmiş IMDb kataloğu entegrasyonu',
-    types: ['movie'],
+    types: ['movie', 'series'],
     catalogs: [
         {
             type: 'movie',
-            id: 'top',
-            name: 'IMDb Top Movies',
+            id: 'imdb-movies',
+            name: 'IMDb Movies',
             extra: [
                 {
                     name: 'genre',
                     isRequired: false,
                     options: ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror', 'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western']
+                },
+                {
+                    name: 'skip',
+                    isRequired: false
+                }
+            ]
+        },
+        {
+            type: 'series',
+            id: 'imdb-series',
+            name: 'IMDb TV Shows',
+            extra: [
+                {
+                    name: 'genre',
+                    isRequired: false,
+                    options: ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'History', 'Horror', 'Music', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western']
+                },
+                {
+                    name: 'skip',
+                    isRequired: false
                 }
             ]
         }
@@ -63,104 +83,98 @@ async function fetchMovieMetadata(imdbId) {
 
 // Katalog handler'ı
 builder.defineCatalogHandler(async ({ type, id, extra }) => {
-    if (type === 'movie') {
-        try {
-            let searchQuery = '';
-            if (extra && extra.genre) {
-                searchQuery = `&genre=${extra.genre}`;
-            }
-
-            const response = await fetch(`http://www.omdbapi.com/?s=movie&type=movie${searchQuery}&apikey=${OMDB_API_KEY}`);
-            const data = await response.json();
-
-            if (data.Response === 'True') {
-                const metas = await Promise.all(
-                    data.Search.map(async (movie) => {
-                        const details = await fetchMovieMetadata(movie.imdbID);
-                        return {
-                            id: movie.imdbID,
-                            type: 'movie',
-                            name: movie.Title,
-                            poster: movie.Poster,
-                            background: movie.Poster,
-                            releaseInfo: movie.Year,
-                            androidTvMetadata: {
-                                genres: details?.Genre?.split(', ') || [],
-                                director: details?.Director || '',
-                                actors: details?.Actors?.split(', ') || [],
-                                runtime: details?.Runtime || '',
-                                androidTvInteractive: true
-                            }
-                        };
-                    })
-                );
-                return { metas };
-            }
-            return { metas: [] };
-        } catch (error) {
-            console.error(`Katalog alınırken hata: ${error.message}`);
-            return { metas: [] };
+    console.log(`Katalog isteği alındı: type=${type}, id=${id}`);
+    
+    const skip = extra.skip || 0;
+    const limit = 20;
+    let searchType = type === 'series' ? 'series' : 'movie';
+    
+    try {
+        let searchQuery = `type=${searchType}`;
+        if (extra && extra.genre) {
+            searchQuery += `&genre=${extra.genre}`;
         }
+
+        // Popüler içerikleri almak için yıl bazlı arama
+        const currentYear = new Date().getFullYear();
+        searchQuery += `&y=${currentYear - (skip / limit)}`; // Her sayfada farklı bir yıl
+
+        const response = await fetch(`http://www.omdbapi.com/?s=*&${searchQuery}&apikey=${OMDB_API_KEY}`);
+        const data = await response.json();
+
+        if (data.Response === 'True') {
+            const metas = await Promise.all(
+                data.Search.map(async (item) => {
+                    const details = await fetchMovieMetadata(item.imdbID);
+                    return {
+                        id: item.imdbID,
+                        type: type,
+                        name: item.Title,
+                        poster: item.Poster,
+                        background: item.Poster,
+                        releaseInfo: item.Year,
+                        description: details?.Plot,
+                        imdbRating: details?.imdbRating,
+                        genres: details?.Genre?.split(', ') || [],
+                        cast: details?.Actors?.split(', ') || [],
+                        director: details?.Director || '',
+                        runtime: details?.Runtime || '',
+                        androidTvMetadata: {
+                            genres: details?.Genre?.split(', ') || [],
+                            director: details?.Director || '',
+                            actors: details?.Actors?.split(', ') || [],
+                            runtime: details?.Runtime || '',
+                            androidTvInteractive: true
+                        }
+                    };
+                })
+            );
+            return { metas };
+        }
+        return { metas: [] };
+    } catch (error) {
+        console.error(`Katalog alınırken hata: ${error.message}`);
+        return { metas: [] };
     }
-    return { metas: [] };
 });
 
-// Meta handler'ı
+// Meta handler
 builder.defineMetaHandler(async ({ type, id }) => {
-    if (type === 'movie') {
-        try {
-            const movieData = await fetchMovieMetadata(id);
-            if (!movieData) return null;
+    try {
+        const details = await fetchMovieMetadata(id);
+        if (!details) return { meta: null };
 
-            return {
-                meta: {
-                    id: movieData.imdbID,
-                    type: 'movie',
-                    name: movieData.Title,
-                    poster: movieData.Poster,
-                    background: movieData.Poster,
-                    description: movieData.Plot,
-                    releaseInfo: movieData.Year,
-                    imdbRating: movieData.imdbRating,
-                    director: movieData.Director,
-                    cast: movieData.Actors.split(', '),
-                    genre: movieData.Genre.split(', '),
-                    runtime: movieData.Runtime,
-                    androidTvMetadata: {
-                        genres: movieData.Genre.split(', '),
-                        director: movieData.Director,
-                        actors: movieData.Actors.split(', '),
-                        runtime: movieData.Runtime,
-                        androidTvInteractive: true,
-                        links: [
-                            {
-                                name: `${movieData.Director} Filmleri`,
-                                url: `stremio://search?q=${encodeURIComponent(movieData.Director)}`
-                            },
-                            ...movieData.Actors.split(', ').map(actor => ({
-                                name: `${actor} Filmleri`,
-                                url: `stremio://search?q=${encodeURIComponent(actor)}`
-                            })),
-                            ...movieData.Genre.split(', ').map(genre => ({
-                                name: `${genre} Filmleri`,
-                                url: `stremio://search?q=${encodeURIComponent(genre)}`
-                            }))
-                        ]
-                    }
+        return {
+            meta: {
+                id: id,
+                type: type,
+                name: details.Title,
+                poster: details.Poster,
+                background: details.Poster,
+                releaseInfo: details.Year,
+                description: details.Plot,
+                imdbRating: details.imdbRating,
+                genres: details.Genre?.split(', ') || [],
+                cast: details.Actors?.split(', ') || [],
+                director: details.Director || '',
+                runtime: details.Runtime || '',
+                androidTvMetadata: {
+                    genres: details.Genre?.split(', ') || [],
+                    director: details.Director || '',
+                    actors: details.Actors?.split(', ') || [],
+                    runtime: details.Runtime || '',
+                    androidTvInteractive: true
                 }
-            };
-        } catch (error) {
-            console.error(`Meta verisi alınırken hata: ${error.message}`);
-            return null;
-        }
+            }
+        };
+    } catch (error) {
+        console.error(`Meta alınırken hata: ${error.message}`);
+        return { meta: null };
     }
-    return null;
 });
 
-// Stream handler'ı
-builder.defineStreamHandler(async ({ type, id }) => {
-    return { streams: [] };
-});
+// Stream handler (gerekli ama kullanılmıyor)
+builder.defineStreamHandler(() => ({ streams: [] }));
 
 // Sunucuyu başlat
 const port = process.env.PORT || 7001;
