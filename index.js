@@ -69,7 +69,7 @@ async function fetchMovieMetadata(imdbId) {
     if (cachedData) return cachedData;
 
     try {
-        const url = `http://www.omdbapi.com/?i=${imdbId}&apikey=${OMDB_API_KEY}`;
+        const url = `https://www.omdbapi.com/?i=${imdbId}&apikey=${OMDB_API_KEY}`;
         console.log('Fetching metadata URL:', url);
         
         const response = await fetch(url);
@@ -96,7 +96,7 @@ builder.defineCatalogHandler(async ({ type, id, extra }) => {
         let searchQuery = '';
         
         // Basit bir arama yapalım önce
-        const url = `http://www.omdbapi.com/?s=Batman&type=${type}&apikey=${OMDB_API_KEY}`;
+        const url = `https://www.omdbapi.com/?s=Batman&type=${type}&apikey=${OMDB_API_KEY}`;
         console.log('Fetching catalog URL:', url);
         
         const response = await fetch(url);
