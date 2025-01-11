@@ -18,7 +18,7 @@ if (!OMDB_API_KEY) {
 // Manifest tanımlaması
 const manifest = {
     id: 'org.stremio.imdbenhanced',
-    version: '1.1.2',
+    version: '1.1.3',
     name: 'IMDb Enhanced for Android TV',
     description: 'Android TV için geliştirilmiş IMDb kataloğu entegrasyonu',
     types: ['movie', 'series'],
