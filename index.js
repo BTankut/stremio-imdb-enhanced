@@ -18,7 +18,7 @@ if (!OMDB_API_KEY) {
 // Manifest tanımlaması
 const manifest = {
     id: 'org.stremio.imdbenhanced',
-    version: '1.2.0',
+    version: '1.2.1',
     name: 'IMDb Enhanced for Android TV',
     description: 'Android TV için geliştirilmiş IMDb kataloğu entegrasyonu',
     types: ['movie', 'series'],
@@ -56,7 +56,7 @@ const manifest = {
             ]
         }
     ],
-    resources: ['catalog', 'meta', 'stream'],
+    resources: ['catalog', 'meta', 'stream', 'configure'],
     idPrefixes: ['tt'],
     behaviorHints: {
         adult: false,
@@ -168,6 +168,33 @@ builder.defineCatalogHandler(async ({ type, id, extra }) => {
         console.error('Catalog handler error:', error);
         throw error;
     }
+});
+
+// Configure handler
+builder.defineConfigurationHandler(() => {
+    console.log('Configure handler called');
+    return Promise.resolve({
+        movies: {
+            title: 'IMDb Film Listeleri',
+            type: 'select',
+            options: [
+                { title: 'Top 250 Filmler', value: 'Top250' },
+                { title: 'En Popüler Filmler', value: 'MostPopular' },
+                { title: 'Vizyondaki Filmler', value: 'InTheaters' },
+                { title: 'Yakında Gelecek Filmler', value: 'ComingSoon' }
+            ]
+        },
+        series: {
+            title: 'IMDb Dizi Listeleri',
+            type: 'select',
+            options: [
+                { title: 'Top 250 Diziler', value: 'Top250' },
+                { title: 'En Popüler Diziler', value: 'MostPopular' },
+                { title: 'Yayında Olan Diziler', value: 'OnTV' },
+                { title: 'Yakında Gelecek Diziler', value: 'ComingSoon' }
+            ]
+        }
+    });
 });
 
 // Meta handler
