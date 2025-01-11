@@ -7,8 +7,13 @@ const cache = new NodeCache({ stdTTL: 3600 }); // 1 saat cache süresi
 
 // OMDb API anahtarı
 const OMDB_API_KEY = process.env.OMDB_API_KEY;
-console.log('Environment variables:', process.env);
-console.log('API Key:', OMDB_API_KEY); // API key'i kontrol et
+console.log('All environment variables:', Object.keys(process.env));
+console.log('API Key value:', OMDB_API_KEY);
+console.log('API Key length:', OMDB_API_KEY ? OMDB_API_KEY.length : 0);
+
+if (!OMDB_API_KEY) {
+    console.error('HATA: OMDB_API_KEY environment variable bulunamadı!');
+}
 
 // Manifest tanımlaması
 const manifest = {
@@ -96,13 +101,20 @@ builder.defineCatalogHandler(async ({ type, id, extra }) => {
     try {
         let searchQuery = '';
         
+        // API key kontrolü
+        if (!OMDB_API_KEY) {
+            throw new Error('API key bulunamadı!');
+        }
+        
         // Basit bir arama yapalım önce
         const url = `https://www.omdbapi.com/?s=Batman&type=${type}&apikey=${OMDB_API_KEY}`;
-        console.log('Full URL being called:', url);
+        console.log('Calling URL:', url.replace(OMDB_API_KEY, 'HIDDEN_KEY')); // API key'i gizle
         
         const response = await fetch(url);
         const data = await response.json();
-        console.log('Raw API Response:', JSON.stringify(data));
+        console.log('API Response Status:', response.status);
+        console.log('API Response Headers:', Object.fromEntries(response.headers));
+        console.log('API Response Body:', JSON.stringify(data, null, 2));
 
         if (data.Response === 'True' && Array.isArray(data.Search)) {
             const metas = await Promise.all(
