@@ -7,11 +7,12 @@ const cache = new NodeCache({ stdTTL: 3600 }); // 1 saat cache süresi
 
 // OMDb API anahtarı
 const OMDB_API_KEY = process.env.OMDB_API_KEY;
+console.log('API Key:', OMDB_API_KEY); // API key'i kontrol et
 
 // Manifest tanımlaması
 const manifest = {
     id: 'org.stremio.imdbenhanced',
-    version: '1.1.0',
+    version: '1.1.1',
     name: 'IMDb Enhanced for Android TV',
     description: 'Android TV için geliştirilmiş IMDb kataloğu entegrasyonu',
     types: ['movie', 'series'],
@@ -52,6 +53,7 @@ const manifest = {
     resources: ['catalog', 'meta', 'stream'],
     idPrefixes: ['tt'],
     behaviorHints: {
+        adult: false,
         configurable: true,
         configurationRequired: false
     }
@@ -67,13 +69,18 @@ async function fetchMovieMetadata(imdbId) {
     if (cachedData) return cachedData;
 
     try {
-        const response = await fetch(`http://www.omdbapi.com/?i=${imdbId}&apikey=${OMDB_API_KEY}`);
+        const url = `http://www.omdbapi.com/?i=${imdbId}&apikey=${OMDB_API_KEY}`;
+        console.log('Fetching metadata URL:', url);
+        
+        const response = await fetch(url);
         const data = await response.json();
+        console.log('Metadata response:', data);
         
         if (data.Response === 'True') {
             cache.set(cacheKey, data);
             return data;
         }
+        console.error('Metadata error:', data.Error);
         return null;
     } catch (error) {
         console.error(`Film metadatası alınırken hata: ${error.message}`);
@@ -83,54 +90,37 @@ async function fetchMovieMetadata(imdbId) {
 
 // Katalog handler'ı
 builder.defineCatalogHandler(async ({ type, id, extra }) => {
-    console.log(`Katalog isteği alındı: type=${type}, id=${id}`);
-    
-    const skip = extra.skip || 0;
-    const limit = 20;
-    let searchType = type === 'series' ? 'series' : 'movie';
+    console.log(`Katalog isteği alındı: type=${type}, id=${id}, extra=`, extra);
     
     try {
-        let searchQuery = `type=${searchType}`;
-        if (extra && extra.genre) {
-            searchQuery += `&genre=${extra.genre}`;
-        }
-
-        // Popüler içerikleri almak için yıl bazlı arama
-        const currentYear = new Date().getFullYear();
-        searchQuery += `&y=${currentYear - (skip / limit)}`; // Her sayfada farklı bir yıl
-
-        const response = await fetch(`http://www.omdbapi.com/?s=*&${searchQuery}&apikey=${OMDB_API_KEY}`);
+        let searchQuery = '';
+        
+        // Basit bir arama yapalım önce
+        const url = `http://www.omdbapi.com/?s=Batman&type=${type}&apikey=${OMDB_API_KEY}`;
+        console.log('Fetching catalog URL:', url);
+        
+        const response = await fetch(url);
         const data = await response.json();
+        console.log('Catalog response:', data);
 
-        if (data.Response === 'True') {
+        if (data.Response === 'True' && Array.isArray(data.Search)) {
             const metas = await Promise.all(
                 data.Search.map(async (item) => {
-                    const details = await fetchMovieMetadata(item.imdbID);
                     return {
                         id: item.imdbID,
                         type: type,
                         name: item.Title,
                         poster: item.Poster,
                         background: item.Poster,
-                        releaseInfo: item.Year,
-                        description: details?.Plot,
-                        imdbRating: details?.imdbRating,
-                        genres: details?.Genre?.split(', ') || [],
-                        cast: details?.Actors?.split(', ') || [],
-                        director: details?.Director || '',
-                        runtime: details?.Runtime || '',
-                        androidTvMetadata: {
-                            genres: details?.Genre?.split(', ') || [],
-                            director: details?.Director || '',
-                            actors: details?.Actors?.split(', ') || [],
-                            runtime: details?.Runtime || '',
-                            androidTvInteractive: true
-                        }
+                        releaseInfo: item.Year
                     };
                 })
             );
+            console.log('Returning metas:', metas);
             return { metas };
         }
+        
+        console.error('Catalog error:', data.Error);
         return { metas: [] };
     } catch (error) {
         console.error(`Katalog alınırken hata: ${error.message}`);
@@ -140,9 +130,14 @@ builder.defineCatalogHandler(async ({ type, id, extra }) => {
 
 // Meta handler
 builder.defineMetaHandler(async ({ type, id }) => {
+    console.log(`Meta isteği alındı: type=${type}, id=${id}`);
+    
     try {
         const details = await fetchMovieMetadata(id);
-        if (!details) return { meta: null };
+        if (!details) {
+            console.error('Meta details not found');
+            return { meta: null };
+        }
 
         return {
             meta: {
@@ -157,14 +152,7 @@ builder.defineMetaHandler(async ({ type, id }) => {
                 genres: details.Genre?.split(', ') || [],
                 cast: details.Actors?.split(', ') || [],
                 director: details.Director || '',
-                runtime: details.Runtime || '',
-                androidTvMetadata: {
-                    genres: details.Genre?.split(', ') || [],
-                    director: details.Director || '',
-                    actors: details.Actors?.split(', ') || [],
-                    runtime: details.Runtime || '',
-                    androidTvInteractive: true
-                }
+                runtime: details.Runtime || ''
             }
         };
     } catch (error) {
